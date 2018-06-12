@@ -1527,10 +1527,8 @@ static void do_copy2(const char *path, const char *dest)
 static void do_move2(const char *path, const char *dest)
 {
 	const char	*dest_path;
-	const char	*argv[] = {"mv", "-f", NULL, NULL, NULL};
 	struct stat	info2;
 	gboolean	is_dir;
-	char            *err;
 
 	check_flags();
 
@@ -1592,15 +1590,33 @@ static void do_move2(const char *path, const char *dest)
 	else if (!o_brief)
 		printf_send(_("'Moving %s as %s\n"), path, dest_path);
 
-	argv[2] = path;
-	argv[3] = dest_path;
 
-	err = fork_exec_wait(argv);
-	if (err)
+	GFile *srcf  = g_file_new_for_path(path);
+	GFile *destf = g_file_new_for_path(dest_path);
+
+//	const char	*argv[] = {"mv", "-f", NULL, NULL, NULL};
+//	argv[2] = path;
+//	argv[3] = dest_path;
+//
+//	char *err = fork_exec_wait(argv);
+//	if (err)
+//	{
+//		printf_send(_("!%s\nFailed to move %s as %s\n"),
+//			    err, path, dest_path);
+//		g_free(err);
+//	}
+	g_usleep(100); //too fast for gui side
+	GError *err;
+	if (!g_file_move(srcf, destf,
+			G_FILE_COPY_OVERWRITE | G_FILE_COPY_ALL_METADATA,
+			NULL,
+			NULL, //GFileProgressCallback progress_callback
+			NULL, //gpointer progress_callback_data
+			&err))
 	{
 		printf_send(_("!%s\nFailed to move %s as %s\n"),
-			    err, path, dest_path);
-		g_free(err);
+				err->message, path, dest_path);
+		g_error_free(err);
 	}
 	else
 	{
@@ -1611,6 +1627,9 @@ static void do_move2(const char *path, const char *dest)
 		else
 			send_check_path(path);
 	}
+
+	g_object_unref(srcf);
+	g_object_unref(destf);
 }
 
 /* Copy path to dest.
